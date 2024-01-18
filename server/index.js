@@ -180,7 +180,7 @@ wss.on("connection", (connection, req) => {
               recipient,
               text,
               file: file ? filename : null,
-              _id: messageData._id,
+              _id: messageDoc._id,
             })
           )
         );
