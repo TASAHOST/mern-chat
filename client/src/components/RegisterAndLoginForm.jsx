@@ -12,7 +12,7 @@ const RegisterAndLoginForm = () => {
         e.preventDefault();
         const url = isLoginOrRegister === 'register' ? "register" : "login"
         const {data} = await axios.post(url, {username, password});
-        setLoggedInusername(username);
+        setLoggedInUername(username);
         setId(data.id);
     }
 
