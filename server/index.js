@@ -10,6 +10,9 @@ const Message = require("./models/Message");
 const ws = require("ws");
 const fs = require("fs");
 const { log } = require("console");
+const { resolve } = require("path");
+const { rejects } = require("assert");
+const { verify } = require("crypto");
 
 //เพื่อเรียกใช้ไฟล์ .env
 dotenv.config();
@@ -26,7 +29,7 @@ mongoose.connect(MONGGO_URI);
 
 //ลองว่าเชื่อมต่อกับเซิฟเวอร์ได้ไหม
 app.get("/", (req, res) => {
-  res.send("<h1>This is a RESFUL");
+  res.send("This is a RESFUL");
 });
 
 //User Register
@@ -90,6 +93,30 @@ app.get("/people", async (req, res) => {
   const users = await User.find({}, { _id: 1, username: 1 });
   res.json(users);
 });
+const getUserDataFromRequest = (req) => {
+  return new Promise((resolve, rejects) => {
+    // ? เพื่อป้องกันโค๊ดหยึุดทำงานในกรณีที่ไม่มี
+    const token = req.cookies?.token;
+    if (token) {
+      jwt.verify(token, secret, {}, (err, userData) => {
+        if (err) throw err;
+        resolve(userData);
+      });
+    } else {
+      rejects("no token");
+    }
+  });
+};
+app.get("/messages/:userId", async (req, res) => {
+  const { userId } = req.params;
+  const userData = await getUserDataFromRequest(req);
+  const ourUserId = userData.userId;
+  const messages = await Message.find({
+    sender: { $in: [userId, ourUserId] },
+    recipient: { $in: [userId, ourUserId] },
+  }).sort({ createAt: 1 });
+  res.json(messages);
+});
 
 //บอกว่าให้ฟังที่ PORTไหน โดยดึงมาจากไฟล์ env
 const PORT = process.env.PORT;
@@ -122,7 +149,6 @@ wss.on("connection", (connection, req) => {
       clearInterval(connection.timer);
       connection.terminate();
       notifyAboutOnlinePeople();
-      console.log("dead");
     }, 1000);
   }, 5000);
   connection.on("pong", () => {
@@ -157,15 +183,15 @@ wss.on("connection", (connection, req) => {
     if (file) {
       //เอานามสกลุลเดิมมาเเล้วเอาชื่อหน้าทิ้งไป
       const parts = file.name.split(".");
-      const ext = parts(parts.length - 1);
+      const ext = parts[parts.length - 1];
       //เก้บชื่อไฟล์ด้วยเวลา วันที่
       filename = Date.now() + "." + ext;
       //ไฟล์จะถูกเก็บใน upload
       // __dirname  คือการบอกตำแหน่งปัจจุบันที่ โปรเเกรมกำลังทำงานอยู่
       const path = __dirname + "/uploads" + filename;
       //เหตุผลที่ต้องเปลี่ยนชื่อไฟล์ใหม่ เพราะ ไม่ให้มันซ้ำ เพื่อกันการเขียนทับ บางที่ การอัพชื่อซ้ำมันจะงงว่าต้องเก็บอันไหนไว้
-      const bufferData = new Buffer(file, data.split(",")[1], "base64");
-      fs.writeFile(path, bufferData, () => {
+      //const bufferData = new Buffer(file, data.split(",")[1], "base64");
+      fs.writeFile(path, file.data.split(",")[1], "base64", () => {
         console.log("file saved" + path);
       });
     }
@@ -191,6 +217,4 @@ wss.on("connection", (connection, req) => {
         );
     }
   });
-
-  notifyAboutOnlinePeople();
 });
