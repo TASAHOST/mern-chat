@@ -86,6 +86,11 @@ app.get("/profile", (req, res) => {
   }
 });
 
+app.get("/people", async (req, res) => {
+  const users = await User.find({}, { _id: 1, username: 1 });
+  res.json(users);
+});
+
 //บอกว่าให้ฟังที่ PORTไหน โดยดึงมาจากไฟล์ env
 const PORT = process.env.PORT;
 const server = app.listen(PORT, () => {
@@ -137,7 +142,7 @@ wss.on("connection", (connection, req) => {
       if (token) {
         jwt.verify(token, secret, {}, (err, userData) => {
           if (err) throw err;
-          const { userId, username } = userDoc;
+          const { userId, username } = userData;
           connection.userId = userId;
           connection.username = username;
         });
